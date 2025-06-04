@@ -13,12 +13,10 @@ import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 
-//@seashell: //@seashell: their is also  "bribe",  which is putting some bribe money to my locking pool,
-//@seashell: and when voter decide to give my pool reward,
-//@seashell: voter can get the bribe money from my pool.
+
 contract Bribe is ReentrancyGuard {
     using SafeERC20 for IERC20;
-    uint256 public WEEK;
+    uint256 public WEEK; 
 
     /* ========== STATE VARIABLES ========== */
 
@@ -58,25 +56,11 @@ contract Bribe is ReentrancyGuard {
     mapping(address => bool) internal isBribeToken;
     address[] public bribeTokens;
 
+
     /* ========== CONSTRUCTOR ========== */
 
-    constructor(
-        address _owner,
-        address _voter,
-        address _gaugeManager,
-        address _bribeFactory,
-        address _tokenHandler,
-        address _token0,
-        address _token1,
-        string memory _type
-    ) {
-        require(
-            _bribeFactory != address(0) &&
-                _voter != address(0) &&
-                _gaugeManager != address(0) &&
-                _owner != address(0),
-            "ZA"
-        );
+    constructor(address _owner,address _voter,address _gaugeManager, address _bribeFactory, address _tokenHandler, address _token0, address _token1, string memory _type)  {
+        require(_bribeFactory != address(0) && _voter != address(0) && _gaugeManager != address(0) && _owner != address(0), "ZA");
         WEEK = BlackTimeLibrary.WEEK;
         voter = _voter;
         gaugeManager = _gaugeManager;
@@ -95,45 +79,40 @@ contract Bribe is ReentrancyGuard {
         isBribeToken[_token1] = true;
     }
 
-    function getEpochStart() public view returns (uint256) {
+    function getEpochStart() public view returns(uint256){
         return IMinter(minter).active_period();
     }
 
     /// @notice get next epoch (where bribes are saved)
-    function getNextEpochStart() public view returns (uint256) {
+    function getNextEpochStart() public view returns(uint256){
         return BlackTimeLibrary.epochNext(block.timestamp);
     }
 
     /* ========== VIEWS ========== */
 
     /// @notice get the length of the reward tokens
-    function rewardsListLength() external view returns (uint256) {
+    function rewardsListLength() external view returns(uint256) {
         return bribeTokens.length;
     }
 
     /// @notice Read earned amount given a tokenID and _rewardToken
-    function earned(
-        uint256 tokenId,
-        address _rewardToken
-    ) public view returns (uint256) {
+    function earned(uint256 tokenId, address _rewardToken) public view returns(uint256){
         if (numCheckpoints[tokenId] == 0) {
             return 0;
         }
-
+        
         uint256 reward = 0;
         uint256 _supply = 1;
-        uint256 _currTs = BlackTimeLibrary.epochStart(
-            lastEarn[_rewardToken][tokenId]
-        ); // take epoch last claimed in as starting point
+        uint256 _currTs = BlackTimeLibrary.epochStart(lastEarn[_rewardToken][tokenId]); // take epoch last claimed in as starting point
         uint256 _index = getPriorBalanceIndex(tokenId, _currTs);
         Checkpoint memory cp0 = checkpoints[tokenId][_index];
-
+        
+        
         // accounts for case where lastEarn is before first checkpoint
         _currTs = Math.max(_currTs, BlackTimeLibrary.epochStart(cp0.timestamp));
 
         // get epochs between current epoch and first checkpoint in same epoch as last claim
-        uint256 numEpochs = (BlackTimeLibrary.epochStart(block.timestamp) -
-            _currTs) / WEEK;
+        uint256 numEpochs = (BlackTimeLibrary.epochStart(block.timestamp) - _currTs) / WEEK;
 
         if (numEpochs > 0) {
             for (uint256 i = 0; i < numEpochs; i++) {
@@ -142,25 +121,16 @@ contract Bribe is ReentrancyGuard {
                 // get checkpoint in this epoch
                 cp0 = checkpoints[tokenId][_index];
                 // get supply of last checkpoint in this epoch
-                _supply = Math.max(
-                    supplyCheckpoints[getPriorSupplyIndex(_currTs + WEEK - 1)]
-                        .supply,
-                    1
-                );
-                reward +=
-                    (cp0.balanceOf *
-                        tokenRewardsPerEpoch[_rewardToken][_currTs]) /
-                    _supply;
+                _supply = Math.max(supplyCheckpoints[getPriorSupplyIndex(_currTs + WEEK - 1)].supply, 1);
+                reward += (cp0.balanceOf * tokenRewardsPerEpoch[_rewardToken][_currTs]) / _supply;
                 _currTs += WEEK;
             }
-        }
-        return reward;
+        } 
+        return reward;  
     }
 
-    function getPriorBalanceIndex(
-        uint256 tokenId,
-        uint256 timestamp
-    ) public view returns (uint256) {
+
+    function getPriorBalanceIndex(uint256 tokenId, uint256 timestamp) public view returns (uint256) {
         uint256 nCheckpoints = numCheckpoints[tokenId];
         if (nCheckpoints == 0) {
             return 0;
@@ -192,9 +162,7 @@ contract Bribe is ReentrancyGuard {
         return lower;
     }
 
-    function getPriorSupplyIndex(
-        uint256 timestamp
-    ) public view returns (uint256) {
+    function getPriorSupplyIndex(uint256 timestamp) public view returns (uint256) {
         uint256 nCheckpoints = supplyNumCheckpoints;
         if (nCheckpoints == 0) {
             return 0;
@@ -231,16 +199,14 @@ contract Bribe is ReentrancyGuard {
     }
 
     function _isRewardToken(address _rewardToken) internal view returns (bool) {
-        return
-            isBribeToken[_rewardToken] ||
-            tokenHandler.isConnector(_rewardToken);
+        return isBribeToken[_rewardToken] || tokenHandler.isConnector(_rewardToken);
     }
-
+ 
     /* ========== MUTATIVE FUNCTIONS ========== */
 
     /// @notice User votes deposit
     /// @dev    called on voter.vote() or voter.poke()
-    ///         we save into owner "address" and not "tokenID".
+    ///         we save into owner "address" and not "tokenID". 
     ///         Owner must reset before transferring token
     function deposit(uint256 amount, uint256 tokenId) external nonReentrant {
         require(amount > 0, "ZV");
@@ -250,7 +216,7 @@ contract Bribe is ReentrancyGuard {
 
         _writeCheckpoint(tokenId, balanceOf[tokenId]);
         _writeSupplyCheckpoint();
-
+        
         emit Staked(tokenId, amount);
     }
 
@@ -260,23 +226,16 @@ contract Bribe is ReentrancyGuard {
 
         if (
             _nCheckPoints > 0 &&
-            BlackTimeLibrary.epochStart(
-                checkpoints[tokenId][_nCheckPoints - 1].timestamp
-            ) ==
+            BlackTimeLibrary.epochStart(checkpoints[tokenId][_nCheckPoints - 1].timestamp) ==
             BlackTimeLibrary.epochStart(_timestamp)
         ) {
-            checkpoints[tokenId][_nCheckPoints - 1] = Checkpoint(
-                _timestamp,
-                balance
-            );
+            checkpoints[tokenId][_nCheckPoints - 1] = Checkpoint(_timestamp, balance);
         } else {
-            checkpoints[tokenId][_nCheckPoints] = Checkpoint(
-                _timestamp,
-                balance
-            );
+            checkpoints[tokenId][_nCheckPoints] = Checkpoint(_timestamp, balance);
             numCheckpoints[tokenId] = _nCheckPoints + 1;
         }
     }
+
 
     function _writeSupplyCheckpoint() internal {
         uint256 _nCheckPoints = supplyNumCheckpoints;
@@ -284,25 +243,17 @@ contract Bribe is ReentrancyGuard {
 
         if (
             _nCheckPoints > 0 &&
-            BlackTimeLibrary.epochStart(
-                supplyCheckpoints[_nCheckPoints - 1].timestamp
-            ) ==
+            BlackTimeLibrary.epochStart(supplyCheckpoints[_nCheckPoints - 1].timestamp) ==
             BlackTimeLibrary.epochStart(_timestamp)
         ) {
-            supplyCheckpoints[_nCheckPoints - 1] = SupplyCheckpoint(
-                _timestamp,
-                totalSupply
-            );
+            supplyCheckpoints[_nCheckPoints - 1] = SupplyCheckpoint(_timestamp, totalSupply);
         } else {
-            supplyCheckpoints[_nCheckPoints] = SupplyCheckpoint(
-                _timestamp,
-                totalSupply
-            );
+            supplyCheckpoints[_nCheckPoints] = SupplyCheckpoint(_timestamp, totalSupply);
             supplyNumCheckpoints = _nCheckPoints + 1;
         }
     }
 
-    /// @notice User votes withdrawal
+    /// @notice User votes withdrawal 
     /// @dev    called on voter.reset()
     function withdraw(uint256 amount, uint256 tokenId) external nonReentrant {
         require(amount > 0, "ZV");
@@ -318,12 +269,9 @@ contract Bribe is ReentrancyGuard {
     }
 
     /// @notice Claim the TOKENID rewards
-    function getReward(
-        uint256 tokenId,
-        address[] memory tokens
-    ) external nonReentrant {
+    function getReward(uint256 tokenId, address[] memory tokens) external nonReentrant  {
         address _owner = IVotingEscrow(ve).ownerOf(tokenId);
-        if (_owner == avm) {
+        if(_owner == avm) {
             _owner = IAutomatedVotingManager(avm).originalOwner(tokenId);
         }
         require(msg.sender == gaugeManager, "NA");
@@ -337,23 +285,16 @@ contract Bribe is ReentrancyGuard {
         }
     }
 
-    /// @dev Rewards are saved into Current EPOCH mapping.
-    function notifyRewardAmount(
-        address _rewardsToken,
-        uint256 reward
-    ) external nonReentrant {
+    /// @dev Rewards are saved into Current EPOCH mapping. 
+    function notifyRewardAmount(address _rewardsToken, uint256 reward) external nonReentrant {
         require(_isRewardToken(_rewardsToken), "!VERIFIED");
 
-        if (!isBribeToken[_rewardsToken]) {
+        if(!isBribeToken[_rewardsToken]){
             isBribeToken[_rewardsToken] = true;
             bribeTokens.push(_rewardsToken);
         }
 
-        IERC20(_rewardsToken).safeTransferFrom(
-            msg.sender,
-            address(this),
-            reward
-        );
+        IERC20(_rewardsToken).safeTransferFrom(msg.sender,address(this),reward);
         uint256 epochStart = BlackTimeLibrary.epochStart(block.timestamp);
         tokenRewardsPerEpoch[_rewardsToken][epochStart] += reward;
         emit RewardAdded(_rewardsToken, reward, epochStart);
@@ -362,37 +303,21 @@ contract Bribe is ReentrancyGuard {
     /* ========== RESTRICTED FUNCTIONS ========== */
 
     /// @notice Recover some ERC20 from the contract and updated given bribe
-    function recoverERC20AndUpdateData(
-        address tokenAddress,
-        uint256 tokenAmount
-    ) external onlyAllowed {
-        require(
-            tokenAmount <= IERC20(tokenAddress).balanceOf(address(this)),
-            "TOO_MUCH"
-        );
-
+    function recoverERC20AndUpdateData(address tokenAddress, uint256 tokenAmount) external onlyAllowed {
+        require(tokenAmount <= IERC20(tokenAddress).balanceOf(address(this)), "TOO_MUCH");
+        
         uint256 _startTimestamp = IMinter(minter).active_period() + WEEK;
-        uint256 _lastReward = tokenRewardsPerEpoch[tokenAddress][
-            _startTimestamp
-        ];
-        tokenRewardsPerEpoch[tokenAddress][_startTimestamp] =
-            _lastReward -
-            tokenAmount;
+        uint256 _lastReward = tokenRewardsPerEpoch[tokenAddress][_startTimestamp];
+        tokenRewardsPerEpoch[tokenAddress][_startTimestamp] = _lastReward - tokenAmount;
         IERC20(tokenAddress).safeTransfer(owner, tokenAmount);
         emit Recovered(tokenAddress, tokenAmount);
     }
 
     /// @notice Recover some ERC20 from the contract.
-    /// @dev    Be careful --> if called then getReward() at last epoch will fail because some reward are missing!
+    /// @dev    Be careful --> if called then getReward() at last epoch will fail because some reward are missing! 
     ///         Think about calling recoverERC20AndUpdateData()
-    function emergencyRecoverERC20(
-        address tokenAddress,
-        uint256 tokenAmount
-    ) external onlyAllowed {
-        require(
-            tokenAmount <= IERC20(tokenAddress).balanceOf(address(this)),
-            "TOO_MUCH"
-        );
+    function emergencyRecoverERC20(address tokenAddress, uint256 tokenAmount) external onlyAllowed {
+        require(tokenAmount <= IERC20(tokenAddress).balanceOf(address(this)), "TOO_MUCH");
         IERC20(tokenAddress).safeTransfer(owner, tokenAmount);
         emit Recovered(tokenAddress, tokenAmount);
     }
@@ -403,7 +328,7 @@ contract Bribe is ReentrancyGuard {
         voter = _Voter;
     }
 
-    /// @notice Set a new gaugeManager
+        /// @notice Set a new gaugeManager
     function setGaugeManager(address _gaugeManager) external onlyAllowed {
         require(_gaugeManager != address(0));
         gaugeManager = _gaugeManager;
@@ -415,9 +340,9 @@ contract Bribe is ReentrancyGuard {
         minter = _minter;
     }
 
-    /// @notice Set a new AVM
+    /// @notice Set a new AVM 
     function setAVM(address _avm) external onlyAllowed {
-        require(_avm != address(0), "ZA");
+        require(_avm!=address(0), "ZA");
         avm = _avm;
     }
 
@@ -429,26 +354,21 @@ contract Bribe is ReentrancyGuard {
         emit SetOwner(_owner);
     }
 
+
+
     /* ========== MODIFIERS ========== */
 
     modifier onlyAllowed() {
-        require((msg.sender == owner || msg.sender == bribeFactory), "NA");
+        require( (msg.sender == owner || msg.sender == bribeFactory), "NA" );
         _;
     }
 
+
     /* ========== EVENTS ========== */
 
-    event RewardAdded(
-        address indexed rewardToken,
-        uint256 reward,
-        uint256 startTimestamp
-    );
+    event RewardAdded(address indexed rewardToken, uint256 reward, uint256 startTimestamp);
     event Staked(uint256 indexed tokenId, uint256 amount);
     event Withdrawn(uint256 indexed tokenId, uint256 amount);
-    event RewardPaid(
-        address indexed user,
-        address indexed rewardsToken,
-        uint256 reward
-    );
+    event RewardPaid(address indexed user,address indexed rewardsToken,uint256 reward);
     event Recovered(address indexed token, uint256 amount);
 }
