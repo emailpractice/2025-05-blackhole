@@ -344,6 +344,7 @@ contract GenesisPool is IGenesisPool, IGenesisPoolBase {
     function setPoolStatus(PoolStatus status) external onlyManager {
         _setPoolStatus(status);
     }
+    //先依照之前的status調整退款額度: 半launched 就會把refund額度設成 預計原生 - 已經收到的原生。 如果已經launch 那退款額度 = 0  如果disqulify 退款額度 = 預計額度。    最後再把舊的pool status設置成傳進來的參數 = 新的status。
 
     function _setPoolStatus(PoolStatus status) internal {
         if (status == PoolStatus.PARTIALLY_LAUNCHED) {

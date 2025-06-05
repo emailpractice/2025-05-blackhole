@@ -16,6 +16,7 @@ import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 //@seashell: //@seashell: their is also  "bribe",  which is putting some bribe money to my locking pool,
 //@seashell: and when voter decide to give my pool reward,
 //@seashell: voter can get the bribe money from my pool.
+//@seashell: That way they will vote for my pool and increase me reward index.
 contract Bribe is ReentrancyGuard {
     using SafeERC20 for IERC20;
     uint256 public WEEK;
