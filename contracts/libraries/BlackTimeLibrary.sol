@@ -56,7 +56,7 @@ library BlackTimeLibrary {
         unchecked {
             return  endTime - WEEK <= timestamp && timestamp < endTime;
         }
-    }
+    }  
 
     /// @dev Returns duration in multiples of epoch
     function prevPreEpoch(uint256 timestamp) internal pure returns (uint256) {
