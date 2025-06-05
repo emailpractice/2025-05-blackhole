@@ -367,6 +367,12 @@ contract RouterV2 {
         require(amountA >= amountAMin && amountB >= amountBMin, "IAA");
     }
 
+//@seashell: token A B 是一個pair ( swap用的。 兩者分別是genesis pool的 native/fund )
+// 全部pool募集到的amount都會被送過來。但這函數會先算一下swap池子能夠接受多少比例的A對B
+// 比如B太多，他可能就不能吃下這麼多的B。 
+// 算完實際要轉多少之後，他會找出兩代幣對應的地址 然後各自轉過去。 最後mint token出來，應該是給genesis pool 募資人的代幣。 
+
+//todo 沒轉過來的代幣 留在
     function addLiquidity(
         address tokenA,
         address tokenB,
@@ -383,11 +389,15 @@ contract RouterV2 {
 
         require(!(IBaseV1Factory(factory).isGenesis(pair) && IBaseV1Pair(pair).totalSupply() == 0), "NA");
 
-        _safeTransferFrom(tokenA, msg.sender, pair, amountA);
+//@seashell: 從genesis pool ( msg.sender ) 轉amountA 的 Token A 到 pair( lp token池子 )  但LPtoken應該是存USDC會轉 token 出來的池子。 他怎麼又存 token A 又存 token B的。 ( 又存USDC又存另外一種 ) 
+// -->  lp 池子好像就是會持有一對代幣 自動造市AMM 比如uniswap都是這樣的。一個池子要有一對代幣，讓用戶去交易。 
+        _safeTransferFrom(tokenA, msg.sender, pair, amountA); 
         _safeTransferFrom(tokenB, msg.sender, pair, amountB);
-        liquidity = IBaseV1Pair(pair).mint(to);
+        liquidity = IBaseV1Pair(pair).mint(to); //@seashell:  mint有實作 return 。 然後external後面有此函數的return 
+        
     }
 
+//@audit:  這邊有 payable 這竟然是收eth的  感覺可以注意一下有沒有辦法交易附帶eth來亂搞這函數
     function addLiquidityETH(
         address token,
         bool stable,

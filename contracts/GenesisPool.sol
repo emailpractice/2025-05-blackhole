@@ -77,7 +77,8 @@ contract GenesisPool is IGenesisPool, IGenesisPoolBase {
         genesisInfo.tokenOwner = _tokenOwner;
         //@seashell $black 原生代幣
         genesisInfo.nativeToken = _nativeToken;
-        //@seashell 用戶提供的代幣 可能部屬好幾個Genesis 一個池子處理一種代幣
+        //@seashell 用戶提供的代幣 可能部屬好幾個Genesis 一個池子處理一種代幣 
+        // --> 證據 1 genesisInfo.stable：布林值，表示該池是否為穩定池。  那代表有非穩定池
         //@audit 每個代幣可能需要的處理邏輯不同，檢查他是否有相容他真的開放接受的各種代幣
         // -->  genesispoolinfo 有設定好funding token的address。  他轉帳的時候就只會呼叫那個地址的代幣被轉過來'
 
@@ -361,6 +362,10 @@ contract GenesisPool is IGenesisPool, IGenesisPoolBase {
         poolStatus = status;
     }
 
+//
+// 沒修飾符 如果一直呼叫approve 由於allocated native amount不會被清空，零用錢是一直可以有額度的
+// --> 但呼叫這個函數的只有 partially lauch 跟complete launch 所以感覺沒事 應該不會一直被呼叫。
+//@todo router是啥。 1 會approve router 原生代幣 
     function _approveTokens(address router) internal {
         IERC20(genesisInfo.nativeToken).safeApprove(
             router,
@@ -372,35 +377,40 @@ contract GenesisPool is IGenesisPool, IGenesisPoolBase {
         );
     }
 
+//@seashell: 在lauch partially 還有lauch completely之前 會呼叫這個函數。 來把募集到的USDC 跟原生代幣都做一些處理。( 沒細看，不知道是轉帳還是怎樣 )    。   
+
+//todo 在 add liquity那邊就已經要求從此合約轉帳了， 但這函數在addliquidity之前沒有approve 這代表
+//在呼叫這函數之前要在別的地方 approve? 那在哪裡?。  那這個後面的 approve 又是在 approve給誰 幹啥用的
     function _addLiquidityAndDistribute(
         address _router,
         uint256 nativeDesired,
         uint256 fundingDesired,
         uint256 maturityTime
-    ) internal {
-        (, , uint _liquidity) = IRouter(_router).addLiquidity(
-            genesisInfo.nativeToken,
-            genesisInfo.fundingToken,
-            genesisInfo.stable,
-            nativeDesired,
+    ) internal {       //@seashell: 可能是把資金放到uniswap之類的地方變成流動性池
+        (, , uint _liquidity) = IRouter(_router).addLiquidity(  //add liquity有三個回傳值，我這邊只要第三個 也就是liquidity
+            genesisInfo.nativeToken,   // 原生代幣也要? @todo 
+            genesisInfo.fundingToken,  
+            genesisInfo.stable, //此池是否為穩定幣
+            nativeDesired,      // 這兩個desired 感覺像是滑點保護的功能?
             fundingDesired,
-            0,
+            0,           
             0,
             address(this),
             block.timestamp + 100
         );
         liquidity = _liquidity;
-        IERC20(liquidityPoolInfo.pairAddress).safeApprove(
-            liquidityPoolInfo.gaugeAddress,
-            liquidity
+        IERC20(liquidityPoolInfo.pairAddress).safeApprove( // pair address 好像是存usdc 會反過來拿到的代幣( lp token )的地址。   所以Iusdc approve 給 gauge 
+            liquidityPoolInfo.gaugeAddress, //存放 lp token ，鎖倉，提供收益 分配收益的地址 
+            liquidity       //@seashell: 所以這邊感覺有點像是請自己的代幣印刷廠給這個池子的 gauge 但發代幣 
         );
-        IGauge(liquidityPoolInfo.gaugeAddress).depositsForGenesis(
+        //@seashell: 把 LP token 存入 Gauge
+        IGauge(liquidityPoolInfo.gaugeAddress).depositsForGenesis( 
             genesisInfo.tokenOwner,
             block.timestamp + maturityTime,
             liquidity
         );
     }
-
+//@seashell: launch 前要 approve router 跟 add liquity and distribute ( 上面兩函數 )
     function _launchCompletely(address router, uint256 maturityTime) internal {
         _approveTokens(router);
         _addLiquidityAndDistribute(
@@ -411,7 +421,7 @@ contract GenesisPool is IGenesisPool, IGenesisPoolBase {
         );
         _setPoolStatus(PoolStatus.LAUNCH);
     }
-
+//@seashell: Partially launch 前同樣要 approve router 跟 add liquity and distribute ( 上面兩函數 )
     function _launchPartially(address router, uint256 maturityTime) internal {
         _approveTokens(router);
         _addLiquidityAndDistribute(
@@ -426,7 +436,7 @@ contract GenesisPool is IGenesisPool, IGenesisPoolBase {
     function launch(address router, uint256 maturityTime) external onlyManager {
         if (genesisInfo.maturityTime > 0) {
             maturityTime = genesisInfo.maturityTime;
-        }
+        } //那個沒有檢驗 end time的 只看有沒有達到預計募集到原生代幣數量的 check。  有就可以complete luanch。   沒有就只能 partially。  但在Check那邊還有一個 pre lauch。 難道沒達到目標 但有超過一定數額，不能 pre lauch嗎?  還是 pre lauch就跟 lauch partially是一樣的 @todo
         if (_eligbleForCompleteLaunch()) {
             _launchCompletely(router, maturityTime);
         } else {
@@ -434,6 +444,7 @@ contract GenesisPool is IGenesisPool, IGenesisPoolBase {
         }
     }
 
+//@seashell: 原來 rufundableNativeAmount 好像就是會發給贊助者的獎勵token。 這裡表示他是claimable的 
     function claimableNative()
         public
         view
@@ -450,7 +461,7 @@ contract GenesisPool is IGenesisPool, IGenesisPoolBase {
         }
         return (poolStatus, token, amount);
     }
-
+//@seashell:  為什麼可以所有餘額都是claimable的 存進來還能退款嗎? @todo
     function claimableDeposits()
         public
         view
@@ -458,7 +469,8 @@ contract GenesisPool is IGenesisPool, IGenesisPoolBase {
     {
         if (poolStatus == PoolStatus.NOT_QUALIFIED) {
             token = genesisInfo.fundingToken;
-            amount = userDeposits[msg.sender];
+            amount = userDeposits[msg.sender];  //唯一增加方式應該是 deposit USDC 就會更新餘額
+            // 後面其他都是跟gauge互動的樣子 會減少餘額 
         }
         return (poolStatus, token, amount);
     }

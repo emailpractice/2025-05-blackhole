@@ -30,7 +30,7 @@ interface IGenesisPoolBase {
     }
 
     struct LiquidityPool {
-        address pairAddress;
+        address pairAddress;   //好像是存usdc 會反過來拿到的代幣的地址
         address gaugeAddress;
         address internal_bribe;
         address external_bribe;
