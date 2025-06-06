@@ -461,7 +461,7 @@ contract GenesisPool is IGenesisPool, IGenesisPoolBase {
         }
         return (poolStatus, token, amount);
     }
-//@seashell:  為什麼可以所有餘額都是claimable的 存進來還能退款嗎? @todo
+//@seashell:  池子not qualified。 所有的存款就是變成claimable，要預備退款了
     function claimableDeposits()
         public
         view
@@ -475,6 +475,37 @@ contract GenesisPool is IGenesisPool, IGenesisPoolBase {
         return (poolStatus, token, amount);
     }
 
+       function claimableNative()
+        public
+        view
+        returns (PoolStatus, address token, uint256 amount)
+    {
+        if (msg.sender == genesisInfo.tokenOwner) {
+            if (
+                poolStatus == PoolStatus.PARTIALLY_LAUNCHED ||
+                poolStatus == PoolStatus.NOT_QUALIFIED
+            ) {
+                token = genesisInfo.nativeToken;
+                amount = allocationInfo.refundableNativeAmount;
+            }
+        }
+        return (poolStatus, token, amount);
+    }
+
+
+    function claimableDeposits()
+        public
+        view
+        returns (PoolStatus, address token, uint256 amount)
+    {
+        if (poolStatus == PoolStatus.NOT_QUALIFIED) {
+            token = genesisInfo.fundingToken;
+            amount = userDeposits[msg.sender];
+        }
+        return (poolStatus, token, amount);
+    }
+
+
     function claimNative() external {
         require(
             poolStatus == PoolStatus.NOT_QUALIFIED ||
@@ -483,24 +514,38 @@ contract GenesisPool is IGenesisPool, IGenesisPoolBase {
         );
         require(msg.sender == genesisInfo.tokenOwner, "NA");
 
+
         uint256 _amount = allocationInfo.refundableNativeAmount;
         allocationInfo.refundableNativeAmount = 0;
+
 
         if (_amount > 0) {
             IERC20(genesisInfo.nativeToken).safeTransfer(msg.sender, _amount);
         }
     }
 
-    function claimDeposits() external {
+
+
+
+ //if pool not qualified , return funding token to user
+
+   function claimDeposits() external {
         require(poolStatus == PoolStatus.NOT_QUALIFIED, "INS");
+
 
         uint256 _amount = userDeposits[msg.sender];
         userDeposits[msg.sender] = 0;
+
 
         if (_amount > 0) {
             IERC20(genesisInfo.fundingToken).safeTransfer(msg.sender, _amount);
         }
     }
+//if not qualified 且 msgsender是 token owner。 loop through 全部的incentive種類。 把incentive數量都複製到_amount 回傳。 然後也會回傳token地址的 list。 五的地址 五個數量這樣 
+(uint256[](incentivesCnt);) 來算數量，等等可以claim。
+//@audit2 incentive的種類可以任意增加嗎? 這邊有for迴圈可以破壞
+// 不行 只有token owener  可以 add incentive
+
 
     function claimableIncentives()
         public
@@ -520,22 +565,26 @@ contract GenesisPool is IGenesisPool, IGenesisPoolBase {
             }
         }
     }
-
+// 一樣要tokenowner才能claim。 激勵只有協議方能給，然後這邊如果POOL NOT QUALIFIED。協議方會用這個函數拿回一開始放進去的激勵金 。
     function claimIncentives() external {
         require(poolStatus == PoolStatus.NOT_QUALIFIED, "INS");
         require(msg.sender == genesisInfo.tokenOwner, "NA");
+
 
         uint256 _incentivesCnt = incentiveTokens.length;
         uint256 i;
         uint _amount;
 
+
         for (i = 0; i < _incentivesCnt; i++) {
             _amount = incentives[incentiveTokens[i]];
             incentives[incentiveTokens[i]] = 0;
 
+
             IERC20(incentiveTokens[i]).safeTransfer(msg.sender, _amount);
         }
     }
+
 
     function balanceOf(address account) external view returns (uint256) {
         uint256 _depositerLiquidity = liquidity / 2;
@@ -545,7 +594,42 @@ contract GenesisPool is IGenesisPool, IGenesisPoolBase {
             balance += (liquidity - _depositerLiquidity - tokenOwnerUnstaked);
         return balance;
     }
+//用戶獲得的捐錢證明 通常是LP TOKEN POOL (PAIR.SOL)發給用戶的。 GAUGE.SOL 則是再進一步用lp TOKEN質押用的我猜。這邊要Deduct gauge代幣的amount 。不知道是為了甚麼 是誰退出 gauge了嗎?   但為什麼在genesispool處理 @todo
 
+
+/*
+用戶提供資金進入 Genesis Pool（換得 LP Token 或某種存款證明）
+
+
+接著會把這些 LP Token 質押到 Gauge 裡
+
+
+當用戶或協議決定從 Gauge 中退出質押、或 Genesis Pool 結束後重新分配時，就會呼叫這些 deduct 函數來處理資金帳目。
+
+
+但我沒看到transfer 到gauge的邏輯 
+所以有可能 gauge不會實際拿到錢? 他只會: 
+Genesis Pool 增加 userDeposits[msg.sender] 數值。
+
+
+Genesis Pool 通知 Gauge → 發放投票代幣（gaugeToken）。
+
+但gauge沒拿到錢 要怎麼真的去產生 yield? 
+
+
+
+
+🧠 補充細節解釋：
+liquidity / 2 → 暗示有一半的流動性是 tokenOwner 的（協議方先提供了一半？）
+
+
+tokenOwnerUnstaked → 是用來追蹤「協議方可領的最大金額」
+
+
+整體邏輯很像是：「社群佔 50%、協議方佔 50%，但協議方有權利先行退場，但不能領超過他該得的那一半」
+
+
+*/
     function deductAmount(
         address account,
         uint256 gaugeTokenAmount
@@ -554,10 +638,12 @@ contract GenesisPool is IGenesisPool, IGenesisPoolBase {
         uint256 userAmount = (totalDeposits * gaugeTokenAmount) /
             _depositerLiquidity;
 
+
         if (account == genesisInfo.tokenOwner) {
             uint256 pendingOwnerStaked = liquidity -
                 _depositerLiquidity -
                 tokenOwnerUnstaked;
+
 
             if (gaugeTokenAmount < pendingOwnerStaked) {
                 tokenOwnerUnstaked += gaugeTokenAmount;
@@ -572,12 +658,14 @@ contract GenesisPool is IGenesisPool, IGenesisPoolBase {
         userDeposits[account] -= userAmount;
     }
 
+
     function deductAllAmount(address account) external onlyGauge {
         uint256 _depositerLiquidity = liquidity / 2;
         if (account == genesisInfo.tokenOwner)
             tokenOwnerUnstaked = liquidity - _depositerLiquidity;
-        userDeposits[account] = 0;
+        userDeposits[account] = 0; //@audit 無論如何都歸0? 不用if條件?
     }
+
 
     function getNativeTokenAmount(
         uint256 depositAmount
@@ -586,11 +674,13 @@ contract GenesisPool is IGenesisPool, IGenesisPoolBase {
         return _getNativeTokenAmount(depositAmount);
     }
 
+
     function _getNativeTokenAmount(
         uint256 depositAmount
     ) internal view returns (uint256) {
         return auction.getNativeTokenAmount(depositAmount);
     }
+
 
     function getFundingTokenAmount(
         uint256 nativeAmount
@@ -599,11 +689,13 @@ contract GenesisPool is IGenesisPool, IGenesisPoolBase {
         return _getFundingTokenAmount(nativeAmount);
     }
 
+
     function _getFundingTokenAmount(
         uint256 nativeAmount
     ) internal view returns (uint256) {
         return auction.getFundingTokenAmount(nativeAmount);
     }
+
 
     function getAllocationInfo()
         external
@@ -612,6 +704,7 @@ contract GenesisPool is IGenesisPool, IGenesisPoolBase {
     {
         return allocationInfo;
     }
+
 
     function getIncentivesInfo()
         external
@@ -628,6 +721,7 @@ contract GenesisPool is IGenesisPool, IGenesisPoolBase {
         }
     }
 
+
     function getGenesisInfo()
         external
         view
@@ -636,6 +730,7 @@ contract GenesisPool is IGenesisPool, IGenesisPoolBase {
         return genesisInfo;
     }
 
+
     function getLiquidityPoolInfo()
         external
         view
@@ -643,17 +738,30 @@ contract GenesisPool is IGenesisPool, IGenesisPoolBase {
     {
         return liquidityPoolInfo;
     }
-
+// 拍賣只有在 NATIVE TOKEN DEPOSITED之後才能被設置。 但因為這合約的第一個函數  SET GENESIS INFO裡面 就會把狀態調整成 NATIVE TOKEN DEPOSITED。 現在狀況應該是SET完INFO 就可以拍賣。 但這是合理的嗎? //@audit
     function setAuction(address _auction) external onlyManagerOrProtocol {
         require(_auction != address(0), "ZA");
         require(poolStatus == PoolStatus.NATIVE_TOKEN_DEPOSITED, "INS");
         auction = IAuction(_auction);
     }
 
+
     function setMaturityTime(uint256 _maturityTime) external onlyManager {
         genesisInfo.maturityTime = _maturityTime;
     }
+/*
+這個函數由管理者呼叫，用來設定 Genesis Pool 的「開始時間」，但必須符合以下條件：
+開始時間會經過標準化（epoch start )(對齊格式之類的）。
 
+
+設定的開始時間 + 持續時間 - 一段禁止存款的時間窗。
+如果只是要晚一點開始接受存款，直接開始時間 + 禁止存款時間窗 就可以了
+
+
+但他這邊還加上了 持續時間。 感覺想懂持續時間的意義，可以幫我更了解 genesis pool @todo
+
+
+*/
     function setStartTime(uint256 _startTime) external onlyManager {
         _startTime = BlackTimeLibrary.epochStart(_startTime);
         require(
@@ -666,3 +774,5 @@ contract GenesisPool is IGenesisPool, IGenesisPoolBase {
         genesisInfo.startTime = _startTime;
     }
 }
+
+
