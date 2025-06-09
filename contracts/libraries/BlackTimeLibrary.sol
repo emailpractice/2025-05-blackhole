@@ -2,7 +2,6 @@
 pragma solidity 0.8.13;
 
 library BlackTimeLibrary {
-
     uint256 internal constant WEEK = 1800;
     uint internal constant NO_VOTING_WINDOW = 300;
     uint256 internal constant MAX_LOCK_DURATION = 86400 * 365 * 4;
@@ -13,7 +12,7 @@ library BlackTimeLibrary {
     function epochStart(uint256 timestamp) internal pure returns (uint256) {
         unchecked {
             return timestamp - (timestamp % WEEK);
-        }
+        } //現在可能是這樣1717939200
     }
 
     /// @dev Returns start of next epoch / end of current epoch
@@ -40,8 +39,9 @@ library BlackTimeLibrary {
     /// @dev Returns the status if it is the last hour of the epoch
     function isLastHour(uint256 timestamp) internal pure returns (bool) {
         // return block.timestamp % 7 days >= 6 days + 23 hours;
-        return timestamp >= BlackTimeLibrary.epochVoteEnd(timestamp) 
-        && timestamp < BlackTimeLibrary.epochNext(timestamp);
+        return
+            timestamp >= BlackTimeLibrary.epochVoteEnd(timestamp) &&
+            timestamp < BlackTimeLibrary.epochNext(timestamp);
     }
 
     /// @dev Returns duration in multiples of epoch
@@ -52,23 +52,26 @@ library BlackTimeLibrary {
     }
 
     /// @dev Returns duration in multiples of epoch
-    function isLastEpoch(uint256 timestamp, uint256 endTime) internal pure returns (bool) {
+    function isLastEpoch(
+        uint256 timestamp,
+        uint256 endTime
+    ) internal pure returns (bool) {
         unchecked {
-            return  endTime - WEEK <= timestamp && timestamp < endTime;
+            return endTime - WEEK <= timestamp && timestamp < endTime;
         }
-    }  
+    }
 
     /// @dev Returns duration in multiples of epoch
     function prevPreEpoch(uint256 timestamp) internal pure returns (uint256) {
         unchecked {
-            return  epochStart(timestamp) - NO_GENESIS_DEPOSIT_WINDOW;
+            return epochStart(timestamp) - NO_GENESIS_DEPOSIT_WINDOW;
         }
     }
 
     /// @dev Returns duration in multiples of epoch
     function currPreEpoch(uint256 timestamp) internal pure returns (uint256) {
         unchecked {
-            return  epochNext(timestamp) - NO_GENESIS_DEPOSIT_WINDOW;
+            return epochNext(timestamp) - NO_GENESIS_DEPOSIT_WINDOW;
         }
     }
 }
