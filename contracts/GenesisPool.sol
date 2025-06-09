@@ -77,7 +77,7 @@ contract GenesisPool is IGenesisPool, IGenesisPoolBase {
         genesisInfo.tokenOwner = _tokenOwner;
         //@seashell $black 原生代幣
         genesisInfo.nativeToken = _nativeToken;
-        //@seashell 用戶提供的代幣 可能部屬好幾個Genesis 一個池子處理一種代幣 
+        //@seashell 用戶提供的代幣 可能部屬好幾個Genesis 一個池子處理一種代幣
         // --> 證據 1 genesisInfo.stable：布林值，表示該池是否為穩定池。  那代表有非穩定池
         //@audit 每個代幣可能需要的處理邏輯不同，檢查他是否有相容他真的開放接受的各種代幣
         // -->  genesispoolinfo 有設定好funding token的address。  他轉帳的時候就只會呼叫那個地址的代幣被轉過來'
@@ -187,7 +187,7 @@ contract GenesisPool is IGenesisPool, IGenesisPoolBase {
         );
     }
 
-//@seashell:  把refundable的數量變成 "預計要收的原生代幣的數量" ( proposedNativeAmount) ) 
+    //@seashell:  把refundable的數量變成 "預計要收的原生代幣的數量" ( proposedNativeAmount) )
     function rejectPool() external onlyManager {
         require(
             poolStatus == PoolStatus.NATIVE_TOKEN_DEPOSITED ||
@@ -200,16 +200,16 @@ contract GenesisPool is IGenesisPool, IGenesisPoolBase {
         emit RejectedGenesisPool(genesisInfo.nativeToken);
     }
 
-//@seashell:  approvePool 會把pool的狀態改成 PRE_LISTING
-//@seashell: //@todo  不知道甚麼是 pairAddress。 liquiditypool也還不知道是啥   
+    //@seashell:  approvePool 會把pool的狀態改成 PRE_LISTING
+    //@seashell: //@todo  不知道甚麼是 pairAddress。 liquiditypool也還不知道是啥
     function approvePool(address _pairAddress) external onlyManager {
         require(poolStatus == PoolStatus.NATIVE_TOKEN_DEPOSITED, "INS");
         liquidityPoolInfo.pairAddress = _pairAddress;
         poolStatus = PoolStatus.PRE_LISTING;
         emit ApprovedGenesisPool(genesisInfo.nativeToken);
     }
-//@seashell: 要被approve過( prelisting )或是 transfer incentive( prelaunch )之後才能存 //@todo
-// 也要過了 startTime 才能存
+    //@seashell: 要被approve過( prelisting )或是 transfer incentive( prelaunch )之後才能存 //@todo
+    // 也要過了 startTime 才能存
     function depositToken(
         address spender,
         uint256 amount
@@ -220,26 +220,26 @@ contract GenesisPool is IGenesisPool, IGenesisPoolBase {
             "INS"
         );
         require(block.timestamp >= genesisInfo.startTime, "INS");
-//@seashell: 預計募集的fund和已經fund到的錢的差距
+        //@seashell: 預計募集的fund和已經fund到的錢的差距
         uint256 _fundingLeft = allocationInfo.proposedFundingAmount -
             allocationInfo.allocatedFundingAmount;
-            //@seashell: 預計募集的原生代幣和已經拿到的原生代幣的差距，
-            // 把這個數額透過 _getFundingTokenAmount 轉換成 funding token 的數量
-            //@ 當成 max funding left，表示 我預計提供的原生代幣就只能支撐起這麼多fund )
+        //@seashell: 預計募集的原生代幣和已經拿到的原生代幣的差距，
+        // 把這個數額透過 _getFundingTokenAmount 轉換成 funding token 的數量
+        //@ 當成 max funding left，表示 我預計提供的原生代幣就只能支撐起這麼多fund )
         uint256 _maxFundingLeft = _getFundingTokenAmount(
             allocationInfo.proposedNativeAmount -
                 allocationInfo.allocatedNativeAmount
-        );  //@seashell: 原生代幣能支持的funding VS 預計-已經收到的funding。 取小的當還能收的 amount
-    // @todo 但我不是很懂。預計要收的代幣跟預計要收的fund不是都是協議方自己設置的嗎? 
-    //不是可能換算起來，兩個數額差不多。 就隨便取一個當計算標準就好?  
-    //還是只要超過上限任何一點點，都會造成危害?
+        ); //@seashell: 原生代幣能支持的funding VS 預計-已經收到的funding。 取小的當還能收的 amount
+        // @todo 但我不是很懂。預計要收的代幣跟預計要收的fund不是都是協議方自己設置的嗎?
+        //不是可能換算起來，兩個數額差不多。 就隨便取一個當計算標準就好?
+        //還是只要超過上限任何一點點，都會造成危害?
 
         uint _amount = _maxFundingLeft <= _fundingLeft
             ? _maxFundingLeft
             : _fundingLeft;
 
-            //@seashell: 上面計算的還能收多少的amount跟使用者輸入的amount比較，取小的。
-            //@seashell: 協議還能收，使用者要給多少就全收。協議只能吃使用者的一半，那就只讓她轉帳一半
+        //@seashell: 上面計算的還能收多少的amount跟使用者輸入的amount比較，取小的。
+        //@seashell: 協議還能收，使用者要給多少就全收。協議只能吃使用者的一半，那就只讓她轉帳一半
         _amount = _amount <= amount ? _amount : amount;
         require(_amount > 0, "ZV");
 
@@ -249,20 +249,20 @@ contract GenesisPool is IGenesisPool, IGenesisPoolBase {
             _amount
         );
 
-//@seashell: 如果spnder之前沒存過錢，就把spender加入到depositers名單裡面
+        //@seashell: 如果spnder之前沒存過錢，就把spender加入到depositers名單裡面
         if (userDeposits[spender] == 0) {
             depositers.push(spender);
         }
-//@seashell: 更新userDeposits的數額、totalDeposit( internal狀態變數 )的存量。
+        //@seashell: 更新userDeposits的數額、totalDeposit( internal狀態變數 )的存量。
         userDeposits[spender] = userDeposits[spender] + _amount;
         totalDeposits += _amount;
-//@seashell: 把fund算成等值的native token amount。 然後更新已經募集到的原生代幣數額、funding數額
-//@audit: 如果在募資環節，原生代幣的價格波動很大，這樣會不會有問題? 可能同樣捐5usdc，
-// 第一個人被計算成比較大的原生代幣資格之類的
+        //@seashell: 把fund算成等值的native token amount。 然後更新已經募集到的原生代幣數額、funding數額
+        //@audit: 如果在募資環節，原生代幣的價格波動很大，這樣會不會有問題? 可能同樣捐5usdc，
+        // 第一個人被計算成比較大的原生代幣資格之類的
 
-//@todo 這邊用_getNativeTokenAmount去算對應的原生代幣數量，讓我感覺這個pool確實一次只能吃一種
-//funding token?。  不然這邊只是傳給_getNativeTokenAmount 一個數字而已，他應該沒辦法辨別出傳入的
-// fund是甚麼Token。  那我想知道的是，這個pool是怎麼設計他「只吃USDC」的限制的呢?
+        //@todo 這邊用_getNativeTokenAmount去算對應的原生代幣數量，讓我感覺這個pool確實一次只能吃一種
+        //funding token?。  不然這邊只是傳給_getNativeTokenAmount 一個數字而已，他應該沒辦法辨別出傳入的
+        // fund是甚麼Token。  那我想知道的是，這個pool是怎麼設計他「只吃USDC」的限制的呢?
 
         uint256 nativeAmount = _getNativeTokenAmount(totalDeposits);
         allocationInfo.allocatedFundingAmount += _amount;
@@ -277,20 +277,20 @@ contract GenesisPool is IGenesisPool, IGenesisPoolBase {
     function eligbleForPreLaunchPool() external view returns (bool) {
         return _eligbleForPreLaunchPool();
     }
-//@seashell: 如果募到的原生代幣達到預期的threshold 可能60%，並且這個pool 
-// 要在結束前，而且還要在結束前一周內。 太早募集到還不能算過。 也許它其實就只給一周? 所以那個太早的檢查條件只是某種invarient check
-// 就eligable For preLaunch。 但不知道可以幹嘛 @todo
+    //@seashell: 如果募到的原生代幣達到預期的threshold 可能60%，並且這個pool
+    // 要在結束前，而且還要在結束前一周內。 太早募集到還不能算過。 也許它其實就只給一周? 所以那個太早的檢查條件只是某種invarient check
+    // 就eligable For preLaunch。 但不知道可以幹嘛 @todo
     function _eligbleForPreLaunchPool() internal view returns (bool) {
-        uint _endTime = genesisInfo.startTime + genesisInfo.duration;//@audit: 就是覺得加法搞不好會加出問題
+        uint _endTime = genesisInfo.startTime + genesisInfo.duration; //@audit: 就是覺得加法搞不好會加出問題
         uint256 targetNativeAmount = (allocationInfo.proposedNativeAmount *
             genesisInfo.threshold) / 10000; // threshold is 100 * of original to support 2 deciamls
-//@seashell: 如果 timestamp 落在 結束前一週內（含起點但不含結束點），就會回傳 true。
+        //@seashell: 如果 timestamp 落在 結束前一週內（含起點但不含結束點），就會回傳 true。
         return (BlackTimeLibrary.isLastEpoch(block.timestamp, _endTime) &&
             allocationInfo.allocatedNativeAmount >= targetNativeAmount);
     }
 
-//@seashell: 募資到的原生代幣超過預計數量，可以eligble for complete launch ( 上面是preLaunch )
-//@audit: 但這邊不用管時間喔? 萬一end time早就過了。原生代幣超過數額還是能complete launch?
+    //@seashell: 募資到的原生代幣超過預計數量，可以eligble for complete launch ( 上面是preLaunch )
+    //@audit: 但這邊不用管時間喔? 萬一end time早就過了。原生代幣超過數額還是能complete launch?
     function _eligbleForCompleteLaunch() internal view returns (bool) {
         return
             allocationInfo.allocatedNativeAmount >=
@@ -302,19 +302,18 @@ contract GenesisPool is IGenesisPool, IGenesisPoolBase {
         uint256 targetNativeAmount = (allocationInfo.proposedNativeAmount *
             genesisInfo.threshold) / 10000; // threshold is 100 * of original to support 2 deciamls
 
-//@seashell:如果時間已經到，結束前一周內，(但還沒結束)。 而這時候募集到的原生代幣沒過門檻
-//就會回傳 true。  表示eligable for disqualify。 可能可以呼叫函數取消一個池子吧?
+        //@seashell:如果時間已經到，結束前一周內，(但還沒結束)。 而這時候募集到的原生代幣沒過門檻
+        //就會回傳 true。  表示eligable for disqualify。 可能可以呼叫函數取消一個池子吧?
         return (BlackTimeLibrary.isLastEpoch(block.timestamp, _endTime) &&
             allocationInfo.allocatedNativeAmount < targetNativeAmount);
     }
 
     //@seashell: @todo 綜觀上面三個 elgiable 函數。感覺 endtime 其實不是池子的結束時間，
-   // 而是池子準備階段的結束時間。 在準備階段，可以提前launch 也可以提前disqualify。
-   // 如果時間過了，資金有收集到，就可以complete launch。 但我也不確定
+    // 而是池子準備階段的結束時間。 在準備階段，可以提前launch 也可以提前disqualify。
+    // 如果時間過了，資金有收集到，就可以complete launch。 但我也不確定
 
-
-//@seashell:  incentives 可以吃各種代幣的樣子。 但我還是先猜一個genesis pool只能吃一種funding token
-//@seashell: @todo 他會是把incentivet傳給 bribe合約 我不了解為啥。 而且還有分內部外部。   
+    //@seashell:  incentives 可以吃各種代幣的樣子。 但我還是先猜一個genesis pool只能吃一種funding token
+    //@seashell: @todo 他會是把incentivet傳給 bribe合約 我不了解為啥。 而且還有分內部外部。
     function transferIncentives(
         address gauge,
         address external_bribe,
@@ -324,7 +323,7 @@ contract GenesisPool is IGenesisPool, IGenesisPoolBase {
         liquidityPoolInfo.external_bribe = external_bribe;
         liquidityPoolInfo.internal_bribe = internal_bribe;
 
-//@seashell: loop過全部的incentive。一個種類>0才進行轉帳。 並且會notify外部bribe合約，有這些incentive可以發放?
+        //@seashell: loop過全部的incentive。一個種類>0才進行轉帳。 並且會notify外部bribe合約，有這些incentive可以發放?
         uint256 i = 0;
         uint256 _amount = 0;
         uint256 _incentivesCnt = incentiveTokens.length;
@@ -362,10 +361,10 @@ contract GenesisPool is IGenesisPool, IGenesisPoolBase {
         poolStatus = status;
     }
 
-//
-// 沒修飾符 如果一直呼叫approve 由於allocated native amount不會被清空，零用錢是一直可以有額度的
-// --> 但呼叫這個函數的只有 partially lauch 跟complete launch 所以感覺沒事 應該不會一直被呼叫。
-//@todo router是啥。 1 會approve router 原生代幣 
+    //
+    // 沒修飾符 如果一直呼叫approve 由於allocated native amount不會被清空，零用錢是一直可以有額度的
+    // --> 但呼叫這個函數的只有 partially lauch 跟complete launch 所以感覺沒事 應該不會一直被呼叫。
+    //@todo router是啥。 1 會approve router 原生代幣
     function _approveTokens(address router) internal {
         IERC20(genesisInfo.nativeToken).safeApprove(
             router,
@@ -377,40 +376,41 @@ contract GenesisPool is IGenesisPool, IGenesisPoolBase {
         );
     }
 
-//@seashell: 在lauch partially 還有lauch completely之前 會呼叫這個函數。 來把募集到的USDC 跟原生代幣都做一些處理。( 沒細看，不知道是轉帳還是怎樣 )    。   
+    //@seashell: 在lauch partially 還有lauch completely之前 會呼叫這個函數。 來把募集到的USDC 跟原生代幣都做一些處理。( 沒細看，不知道是轉帳還是怎樣 )    。
 
-//todo 在 add liquity那邊就已經要求從此合約轉帳了， 但這函數在addliquidity之前沒有approve 這代表
-//在呼叫這函數之前要在別的地方 approve? 那在哪裡?。  那這個後面的 approve 又是在 approve給誰 幹啥用的
+    //todo 在 add liquity那邊就已經要求從此合約轉帳了， 但這函數在addliquidity之前沒有approve 這代表
+    //在呼叫這函數之前要在別的地方 approve? 那在哪裡?。  那這個後面的 approve 又是在 approve給誰 幹啥用的
     function _addLiquidityAndDistribute(
         address _router,
         uint256 nativeDesired,
         uint256 fundingDesired,
         uint256 maturityTime
-    ) internal {       //@seashell: 可能是把資金放到uniswap之類的地方變成流動性池
-        (, , uint _liquidity) = IRouter(_router).addLiquidity(  //add liquity有三個回傳值，我這邊只要第三個 也就是liquidity
-            genesisInfo.nativeToken,   // 原生代幣也要? @todo 
-            genesisInfo.fundingToken,  
-            genesisInfo.stable, //此池是否為穩定幣
-            nativeDesired,      // 這兩個desired 感覺像是滑點保護的功能?
-            fundingDesired,
-            0,           
-            0,
-            address(this),
-            block.timestamp + 100
-        );
+    ) internal {
+        //@seashell: 可能是把資金放到uniswap之類的地方變成流動性池
+        (, , uint _liquidity) = IRouter(_router).addLiquidity( //add liquity有三個回傳值，我這邊只要第三個 也就是liquidity
+                genesisInfo.nativeToken, // 原生代幣也要? @todo
+                genesisInfo.fundingToken,
+                genesisInfo.stable, //此池是否為穩定幣
+                nativeDesired, // 這兩個desired 感覺像是滑點保護的功能?
+                fundingDesired,
+                0,
+                0,
+                address(this),
+                block.timestamp + 100
+            );
         liquidity = _liquidity;
-        IERC20(liquidityPoolInfo.pairAddress).safeApprove( // pair address 好像是存usdc 會反過來拿到的代幣( lp token )的地址。   所以Iusdc approve 給 gauge 
-            liquidityPoolInfo.gaugeAddress, //存放 lp token ，鎖倉，提供收益 分配收益的地址 
-            liquidity       //@seashell: 所以這邊感覺有點像是請自己的代幣印刷廠給這個池子的 gauge 但發代幣 
-        );
+        IERC20(liquidityPoolInfo.pairAddress).safeApprove( // pair address 好像是存usdc 會反過來拿到的代幣( lp token )的地址。   所以Iusdc approve 給 gauge
+                liquidityPoolInfo.gaugeAddress, //存放 lp token ，鎖倉，提供收益 分配收益的地址
+                liquidity //@seashell: 所以這邊感覺有點像是請自己的代幣印刷廠給這個池子的 gauge 但發代幣
+            );
         //@seashell: 把 LP token 存入 Gauge
-        IGauge(liquidityPoolInfo.gaugeAddress).depositsForGenesis( 
+        IGauge(liquidityPoolInfo.gaugeAddress).depositsForGenesis(
             genesisInfo.tokenOwner,
             block.timestamp + maturityTime,
             liquidity
         );
     }
-//@seashell: launch 前要 approve router 跟 add liquity and distribute ( 上面兩函數 )
+    //@seashell: launch 前要 approve router 跟 add liquity and distribute ( 上面兩函數 )
     function _launchCompletely(address router, uint256 maturityTime) internal {
         _approveTokens(router);
         _addLiquidityAndDistribute(
@@ -421,7 +421,7 @@ contract GenesisPool is IGenesisPool, IGenesisPoolBase {
         );
         _setPoolStatus(PoolStatus.LAUNCH);
     }
-//@seashell: Partially launch 前同樣要 approve router 跟 add liquity and distribute ( 上面兩函數 )
+    //@seashell: Partially launch 前同樣要 approve router 跟 add liquity and distribute ( 上面兩函數 )
     function _launchPartially(address router, uint256 maturityTime) internal {
         _approveTokens(router);
         _addLiquidityAndDistribute(
@@ -444,7 +444,7 @@ contract GenesisPool is IGenesisPool, IGenesisPoolBase {
         }
     }
 
-//@seashell: 原來 rufundableNativeAmount 好像就是會發給贊助者的獎勵token。 這裡表示他是claimable的 
+    //@seashell: 原來 rufundableNativeAmount 好像就是會發給贊助者的獎勵token。 這裡表示他是claimable的
     function claimableNative()
         public
         view
@@ -461,7 +461,7 @@ contract GenesisPool is IGenesisPool, IGenesisPoolBase {
         }
         return (poolStatus, token, amount);
     }
-//@seashell:  池子not qualified。 所有的存款就是變成claimable，要預備退款了
+    //@seashell:  池子not qualified。 所有的存款就是claimable，要預備退款了
     function claimableDeposits()
         public
         view
@@ -469,13 +469,13 @@ contract GenesisPool is IGenesisPool, IGenesisPoolBase {
     {
         if (poolStatus == PoolStatus.NOT_QUALIFIED) {
             token = genesisInfo.fundingToken;
-            amount = userDeposits[msg.sender];  //唯一增加方式應該是 deposit USDC 就會更新餘額
-            // 後面其他都是跟gauge互動的樣子 會減少餘額 
+            amount = userDeposits[msg.sender]; //唯一增加方式應該是 deposit USDC 就會更新餘額
+            // 後面其他都是跟gauge互動的樣子 會減少餘額
         }
         return (poolStatus, token, amount);
     }
 
-       function claimableNative()
+    function claimableNative()
         public
         view
         returns (PoolStatus, address token, uint256 amount)
@@ -492,7 +492,6 @@ contract GenesisPool is IGenesisPool, IGenesisPoolBase {
         return (poolStatus, token, amount);
     }
 
-
     function claimableDeposits()
         public
         view
@@ -505,7 +504,6 @@ contract GenesisPool is IGenesisPool, IGenesisPoolBase {
         return (poolStatus, token, amount);
     }
 
-
     function claimNative() external {
         require(
             poolStatus == PoolStatus.NOT_QUALIFIED ||
@@ -514,38 +512,30 @@ contract GenesisPool is IGenesisPool, IGenesisPoolBase {
         );
         require(msg.sender == genesisInfo.tokenOwner, "NA");
 
-
         uint256 _amount = allocationInfo.refundableNativeAmount;
         allocationInfo.refundableNativeAmount = 0;
-
 
         if (_amount > 0) {
             IERC20(genesisInfo.nativeToken).safeTransfer(msg.sender, _amount);
         }
     }
 
+    //if pool not qualified , return funding token to user
 
-
-
- //if pool not qualified , return funding token to user
-
-   function claimDeposits() external {
+    function claimDeposits() external {
         require(poolStatus == PoolStatus.NOT_QUALIFIED, "INS");
-
 
         uint256 _amount = userDeposits[msg.sender];
         userDeposits[msg.sender] = 0;
-
 
         if (_amount > 0) {
             IERC20(genesisInfo.fundingToken).safeTransfer(msg.sender, _amount);
         }
     }
-//if not qualified 且 msgsender是 token owner。 loop through 全部的incentive種類。 把incentive數量都複製到_amount 回傳。 然後也會回傳token地址的 list。 五的地址 五個數量這樣 
-(uint256[](incentivesCnt);) 來算數量，等等可以claim。
-//@audit2 incentive的種類可以任意增加嗎? 這邊有for迴圈可以破壞
-// 不行 只有token owener  可以 add incentive
-
+    //if not qualified 且 msgsender是 token owner。 loop through 全部的incentive種類。 把incentive數量都複製到_amount 回傳。 然後也會回傳token地址的 list。 五的地址 五個數量這樣
+    //(uint256[](incentivesCnt);) 來算數量，等等可以claim。
+    //@audit2 incentive的種類可以任意增加嗎? 這邊有for迴圈可以破壞
+    // 不行 只有token owener  可以 add incentive
 
     function claimableIncentives()
         public
@@ -565,26 +555,22 @@ contract GenesisPool is IGenesisPool, IGenesisPoolBase {
             }
         }
     }
-// 一樣要tokenowner才能claim。 激勵只有協議方能給，然後這邊如果POOL NOT QUALIFIED。協議方會用這個函數拿回一開始放進去的激勵金 。
+    // 一樣要tokenowner才能claim。 激勵只有協議方能給，然後這邊如果POOL NOT QUALIFIED。協議方會用這個函數拿回一開始放進去的激勵金 。
     function claimIncentives() external {
         require(poolStatus == PoolStatus.NOT_QUALIFIED, "INS");
         require(msg.sender == genesisInfo.tokenOwner, "NA");
-
 
         uint256 _incentivesCnt = incentiveTokens.length;
         uint256 i;
         uint _amount;
 
-
         for (i = 0; i < _incentivesCnt; i++) {
             _amount = incentives[incentiveTokens[i]];
             incentives[incentiveTokens[i]] = 0;
 
-
             IERC20(incentiveTokens[i]).safeTransfer(msg.sender, _amount);
         }
     }
-
 
     function balanceOf(address account) external view returns (uint256) {
         uint256 _depositerLiquidity = liquidity / 2;
@@ -594,10 +580,9 @@ contract GenesisPool is IGenesisPool, IGenesisPoolBase {
             balance += (liquidity - _depositerLiquidity - tokenOwnerUnstaked);
         return balance;
     }
-//用戶獲得的捐錢證明 通常是LP TOKEN POOL (PAIR.SOL)發給用戶的。 GAUGE.SOL 則是再進一步用lp TOKEN質押用的我猜。這邊要Deduct gauge代幣的amount 。不知道是為了甚麼 是誰退出 gauge了嗎?   但為什麼在genesispool處理 @todo
+    //用戶獲得的捐錢證明 通常是LP TOKEN POOL (PAIR.SOL)發給用戶的。 GAUGE.SOL 則是再進一步用lp TOKEN質押用的我猜。這邊要Deduct gauge代幣的amount 。不知道是為了甚麼 是誰退出 gauge了嗎?   但為什麼在genesispool處理 @todo
 
-
-/*
+    /*
 用戶提供資金進入 Genesis Pool（換得 LP Token 或某種存款證明）
 
 
@@ -638,12 +623,10 @@ tokenOwnerUnstaked → 是用來追蹤「協議方可領的最大金額」
         uint256 userAmount = (totalDeposits * gaugeTokenAmount) /
             _depositerLiquidity;
 
-
         if (account == genesisInfo.tokenOwner) {
             uint256 pendingOwnerStaked = liquidity -
                 _depositerLiquidity -
                 tokenOwnerUnstaked;
-
 
             if (gaugeTokenAmount < pendingOwnerStaked) {
                 tokenOwnerUnstaked += gaugeTokenAmount;
@@ -658,14 +641,12 @@ tokenOwnerUnstaked → 是用來追蹤「協議方可領的最大金額」
         userDeposits[account] -= userAmount;
     }
 
-
     function deductAllAmount(address account) external onlyGauge {
         uint256 _depositerLiquidity = liquidity / 2;
         if (account == genesisInfo.tokenOwner)
             tokenOwnerUnstaked = liquidity - _depositerLiquidity;
         userDeposits[account] = 0; //@audit 無論如何都歸0? 不用if條件?
     }
-
 
     function getNativeTokenAmount(
         uint256 depositAmount
@@ -674,13 +655,11 @@ tokenOwnerUnstaked → 是用來追蹤「協議方可領的最大金額」
         return _getNativeTokenAmount(depositAmount);
     }
 
-
     function _getNativeTokenAmount(
         uint256 depositAmount
     ) internal view returns (uint256) {
         return auction.getNativeTokenAmount(depositAmount);
     }
-
 
     function getFundingTokenAmount(
         uint256 nativeAmount
@@ -689,13 +668,11 @@ tokenOwnerUnstaked → 是用來追蹤「協議方可領的最大金額」
         return _getFundingTokenAmount(nativeAmount);
     }
 
-
     function _getFundingTokenAmount(
         uint256 nativeAmount
     ) internal view returns (uint256) {
         return auction.getFundingTokenAmount(nativeAmount);
     }
-
 
     function getAllocationInfo()
         external
@@ -704,7 +681,6 @@ tokenOwnerUnstaked → 是用來追蹤「協議方可領的最大金額」
     {
         return allocationInfo;
     }
-
 
     function getIncentivesInfo()
         external
@@ -721,7 +697,6 @@ tokenOwnerUnstaked → 是用來追蹤「協議方可領的最大金額」
         }
     }
 
-
     function getGenesisInfo()
         external
         view
@@ -730,7 +705,6 @@ tokenOwnerUnstaked → 是用來追蹤「協議方可領的最大金額」
         return genesisInfo;
     }
 
-
     function getLiquidityPoolInfo()
         external
         view
@@ -738,41 +712,42 @@ tokenOwnerUnstaked → 是用來追蹤「協議方可領的最大金額」
     {
         return liquidityPoolInfo;
     }
-// 拍賣只有在 NATIVE TOKEN DEPOSITED之後才能被設置。 但因為這合約的第一個函數  SET GENESIS INFO裡面 就會把狀態調整成 NATIVE TOKEN DEPOSITED。 現在狀況應該是SET完INFO 就可以拍賣。 但這是合理的嗎? //@audit
+    // 拍賣只有在 NATIVE TOKEN DEPOSITED之後才能被設置。 但因為這合約的第一個函數  SET GENESIS INFO裡面 就會把狀態調整成 NATIVE TOKEN DEPOSITED。 現在狀況應該是SET完INFO 就可以拍賣。 但這是合理的嗎? //@audit
     function setAuction(address _auction) external onlyManagerOrProtocol {
         require(_auction != address(0), "ZA");
         require(poolStatus == PoolStatus.NATIVE_TOKEN_DEPOSITED, "INS");
         auction = IAuction(_auction);
     }
 
-
     function setMaturityTime(uint256 _maturityTime) external onlyManager {
         genesisInfo.maturityTime = _maturityTime;
     }
-/*
+    /*
 這個函數由管理者呼叫，用來設定 Genesis Pool 的「開始時間」，但必須符合以下條件：
-開始時間會經過標準化（epoch start )(對齊格式之類的）。
+開始時間會經過標準化（epoch start )( 變成某個epoch的起始時間點。
 
 
 設定的開始時間 + 持續時間 - 一段禁止存款的時間窗。
 如果只是要晚一點開始接受存款，直接開始時間 + 禁止存款時間窗 就可以了
 
 
-但他這邊還加上了 持續時間。 感覺想懂持續時間的意義，可以幫我更了解 genesis pool @todo
+但他這邊還加上了 持續時間。 感覺想懂持續時間的意義，可以幫我更了解 genesis pool 
 
-
+只允許設定 _startTime 為現在時間之前一段距離的位置，這樣「可存款時間段」才會包含現在。
 */
+
+    // 我感覺他的意思是 池子快要結束的時間不可以存款?。 但start Time不是一開始就應該設定好的嗎? 怎麼還要在這邊改時間阿。
+    //改時間 可能是池子還沒開始 我再延後時間? 然後我要確保我延後出的"開始時間點"，至少開始時間點不會直接就是在"最後不能存款的那區間"?
+    // 但這樣他允許一開始start 就已經幾乎要不能存款了。   @todo
     function setStartTime(uint256 _startTime) external onlyManager {
-        _startTime = BlackTimeLibrary.epochStart(_startTime);
+        _startTime = BlackTimeLibrary.epochStart(_startTime); //15000
         require(
-            _startTime +
-                genesisInfo.duration -
-                BlackTimeLibrary.NO_GENESIS_DEPOSIT_WINDOW >
-                block.timestamp,
+            _startTime + //              至少需要start time是現在時間的下一個epoch 不然因為第一行強行把starttime向下取整，Starttime要大於的這個檢查一定會失敗。
+                genesisInfo.duration - // starttime + duration = 池子結束的時間
+                BlackTimeLibrary.NO_GENESIS_DEPOSIT_WINDOW > //池子快要結束的時間不可以存款?
+                block.timestamp, //10000
             "TIME"
         );
         genesisInfo.startTime = _startTime;
     }
 }
-
-
